@@ -19,6 +19,7 @@ android.ndk = 25b
 android.archs = arm64-v8a,armeabi-v7a
 android.accept_sdk_license = True
 android.build_tools = 34.0.0
+android.sdk_path = /usr/local/lib/android/sdk
 
 [buildozer]
 log_level = 2

@@ -26,6 +26,13 @@ jobs:
       - name: Install Buildozer
         run: pip install --upgrade buildozer cython==0.29.36
 
+      - name: Check pre-installed Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME" || true
+          ls "$ANDROID_HOME/licenses" || true
+          ls "$ANDROID_HOME/build-tools" || true
+
       - name: Cache buildozer global + .buildozer
         uses: actions/cache@v4
         with:
