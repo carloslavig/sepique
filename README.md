@@ -68,3 +68,8 @@ O APK sai em `bin/taximetro-0.1.0-arm64-v8a_armeabi-v7a-debug.apk`.
 - Tela de "corrida em andamento" separada da de configuração
 - Cálculo de tempo parado (bandeira 2 tradicional) se for desejado
 - Publicação assinada (release, não debug) para distribuir fora do GitHub
+- Alerta de "corrida abaixo do valor justo": comparar em tempo real com
+  corridas equivalentes de outros apps (Uber/99) e avisar se o valor
+  calculado ficar abaixo de R$ 2,00/km. Isso depende de acesso à API/preço
+  desses apps (nenhum expõe isso publicamente hoje), então precisa ser
+  investigado antes de virar tarefa de implementação.
