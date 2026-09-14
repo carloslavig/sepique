@@ -29,7 +29,7 @@ KV = """
     spacing: dp(16)
 
     Label:
-        text: "Taximetro"
+        text: "Se Pique"
         font_size: "28sp"
         size_hint_y: None
         height: dp(48)

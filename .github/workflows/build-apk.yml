@@ -20,5 +20,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: taximetro-apk
+          name: sepique-apk
           path: ${{ steps.buildozer.outputs.filename }}

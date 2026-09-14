@@ -1,7 +1,7 @@
-# Taxímetro
+# Se Pique
 
 MVP em Python/Kivy: uma tela que rastreia a corrida pelo GPS do celular e
-calcula o valor em tempo real.
+calcula o valor em tempo real (taxímetro).
 
 ## Regras de tarifa (R$/km)
 
@@ -46,7 +46,7 @@ Windows** — só em Linux/WSL ou via CI. Duas opções:
 2. Vá em Actions → "Build APK" → "Run workflow" (ou basta dar push na
    branch `main`, o workflow já está configurado em
    [`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml)).
-3. Quando o job terminar, baixe o artefato `taximetro-apk` — é o `.apk`
+3. Quando o job terminar, baixe o artefato `sepique-apk` — é o `.apk`
    pronto pra instalar no celular (ative "instalar de fontes desconhecidas"
    no Android).
 
@@ -60,7 +60,7 @@ pip install buildozer cython
 buildozer android debug
 ```
 
-O APK sai em `bin/taximetro-0.1.0-arm64-v8a_armeabi-v7a-debug.apk`.
+O APK sai em `bin/sepique-0.1.0-arm64-v8a_armeabi-v7a-debug.apk`.
 
 ## Próximos passos (fora do escopo deste MVP)
 

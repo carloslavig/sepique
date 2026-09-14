@@ -1,6 +1,6 @@
 [app]
-title = Taximetro
-package.name = taximetro
+title = Se Pique
+package.name = sepique
 package.domain = com.lavigne
 
 source.dir = .
