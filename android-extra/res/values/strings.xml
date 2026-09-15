@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Le a tela do Urbano Norte, inDriver e PopMove quando um pedido de corrida aparece, so pra calcular se compensa aceitar (R$/km). Nao envia nada pela internet.</string>
+</resources>

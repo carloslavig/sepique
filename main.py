@@ -16,7 +16,12 @@ from kivy.core.window import Window
 from kivy.factory import Factory
 from kivy.lang import Builder
 from kivy.metrics import dp
-from kivy.properties import BooleanProperty, NumericProperty, StringProperty
+from kivy.properties import (
+    BooleanProperty,
+    ListProperty,
+    NumericProperty,
+    StringProperty,
+)
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.popup import Popup
 from kivy.uix.screenmanager import Screen, ScreenManager
@@ -32,6 +37,8 @@ from taximetro.fare import (
     is_weekend,
     resolve_rate,
 )
+from taximetro.offer import evaluate_offer, parse_offer_texts
+from taximetro.offer_bridge import read_last_offer
 from taximetro.storage import list_rides, save_ride
 
 try:
@@ -304,6 +311,143 @@ KV = """
                     height: dp(58)
                     on_release: root.toggle_ride()
 
+<OfferScreen>:
+    name: "offer"
+    canvas.before:
+        Color:
+            rgba: __BG__
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        orientation: "vertical"
+        padding: [dp(20), dp(12)]
+        spacing: dp(10)
+
+        TopBar:
+            title_text: "Vale a corrida?"
+            menu_callback: root.go_back
+
+        ScrollView:
+            do_scroll_x: False
+
+            BoxLayout:
+                orientation: "vertical"
+                spacing: dp(16)
+                padding: [0, dp(6)]
+                size_hint_y: None
+                height: self.minimum_height
+
+                Card:
+                    size_hint_y: None
+                    height: dp(84)
+
+                    Label:
+                        text: "Deteccao automatica (Urbano Norte, inDriver, PopMove)"
+                        font_size: "12sp"
+                        color: __TEXT_MUTED__
+                        halign: "left"
+                        text_size: self.size
+                        size_hint_y: None
+                        height: dp(16)
+
+                    Label:
+                        text: root.autodetect_status_text
+                        font_size: "13sp"
+                        color: __TEXT_SECONDARY__
+                        halign: "left"
+                        text_size: self.size
+                        size_hint_y: None
+                        height: dp(20)
+
+                    PillButton:
+                        text: "Ativar nas configuracoes do Android"
+                        bg_color: __CARD_BG__
+                        size_hint_y: None
+                        height: dp(36)
+                        on_release: root.open_accessibility_settings()
+
+                Card:
+                    size_hint_y: None
+                    height: dp(230)
+
+                    Label:
+                        text: "Distancia ate o passageiro (km)"
+                        font_size: "12sp"
+                        color: __TEXT_MUTED__
+                        size_hint_y: None
+                        height: dp(16)
+                        halign: "left"
+                        text_size: self.size
+
+                    FieldRow:
+                        StyledInput:
+                            id: pickup_input
+                            hint_text: "0.0"
+                            input_filter: "float"
+
+                    Label:
+                        text: "Distancia da corrida (km)"
+                        font_size: "12sp"
+                        color: __TEXT_MUTED__
+                        size_hint_y: None
+                        height: dp(16)
+                        halign: "left"
+                        text_size: self.size
+
+                    FieldRow:
+                        StyledInput:
+                            id: ride_input
+                            hint_text: "0.0"
+                            input_filter: "float"
+
+                    Label:
+                        text: "Valor oferecido (R$)"
+                        font_size: "12sp"
+                        color: __TEXT_MUTED__
+                        size_hint_y: None
+                        height: dp(16)
+                        halign: "left"
+                        text_size: self.size
+
+                    FieldRow:
+                        StyledInput:
+                            id: value_input
+                            hint_text: "0.0"
+                            input_filter: "float"
+
+                PillButton:
+                    text: "Analisar"
+                    bg_color: __ACCENT__
+                    size_hint_y: None
+                    height: dp(54)
+                    on_release: root.analyze()
+
+                Card:
+                    size_hint_y: None
+                    height: dp(90) if root.result_text else 0
+                    opacity: 1 if root.result_text else 0
+
+                    Label:
+                        text: root.result_text
+                        bold: True
+                        font_size: "26sp"
+                        color: root.result_color
+                        size_hint_y: None
+                        height: dp(34)
+                        halign: "left"
+                        text_size: self.size
+
+                    Label:
+                        text: root.result_detail
+                        font_size: "13sp"
+                        color: __TEXT_SECONDARY__
+                        size_hint_y: None
+                        height: dp(20)
+                        halign: "left"
+                        text_size: self.size
+
 <HistoryScreen>:
     name: "history"
     canvas.before:
@@ -373,18 +517,27 @@ class MainScreen(Screen):
 
     def open_menu(self):
         content = BoxLayout(orientation="vertical", spacing=10, padding=10)
+        offer_btn = Factory.PillButton(
+            text="Vale a corrida?", size_hint_y=None, height=48
+        )
         history_btn = Factory.PillButton(
             text="Historico de corridas", size_hint_y=None, height=48
         )
         popup = Popup(
-            title="Menu", content=content, size_hint=(0.8, 0.4), auto_dismiss=True
+            title="Menu", content=content, size_hint=(0.8, 0.5), auto_dismiss=True
         )
+
+        def go_offer(*_args):
+            popup.dismiss()
+            self.manager.current = "offer"
 
         def go_history(*_args):
             popup.dismiss()
             self.manager.current = "history"
 
+        offer_btn.bind(on_release=go_offer)
         history_btn.bind(on_release=go_history)
+        content.add_widget(offer_btn)
         content.add_widget(history_btn)
         popup.open()
 
@@ -475,6 +628,80 @@ class MainScreen(Screen):
         self._last_lon = lon
 
 
+class OfferScreen(Screen):
+    result_text = StringProperty("")
+    result_detail = StringProperty("")
+    result_color = ListProperty([float(x) for x in TEXT_PRIMARY.split(",")])
+    autodetect_status_text = StringProperty(
+        "Desligada. Ative nas configuracoes e volte pra essa tela."
+    )
+
+    def go_back(self):
+        Clock.unschedule(self._poll_offer)
+        self.manager.current = "main"
+
+    def on_pre_enter(self):
+        Clock.schedule_interval(self._poll_offer, 2)
+
+    def on_leave(self):
+        Clock.unschedule(self._poll_offer)
+
+    def analyze(self):
+        pickup = self._read_float(self.ids.pickup_input.text)
+        ride = self._read_float(self.ids.ride_input.text)
+        value = self._read_float(self.ids.value_input.text)
+        ev = evaluate_offer(pickup, ride, value)
+        if ev.worth_it:
+            self.result_text = "VALE A PENA"
+            self.result_color = [float(x) for x in ACCENT.split(",")]
+        else:
+            self.result_text = "NAO VALE A PENA"
+            self.result_color = [float(x) for x in DANGER.split(",")]
+        self.result_detail = "{total:.2f} km no total  ->  R$ {rate:.2f}/km".format(
+            total=ev.total_km, rate=ev.rate_per_km
+        )
+
+    @staticmethod
+    def _read_float(text):
+        try:
+            return float((text or "0").replace(",", "."))
+        except ValueError:
+            return 0.0
+
+    def open_accessibility_settings(self):
+        if platform != "android":
+            self.autodetect_status_text = "So funciona no celular (Android)."
+            return
+        try:
+            from jnius import autoclass
+
+            Intent = autoclass("android.content.Intent")
+            Settings = autoclass("android.provider.Settings")
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            PythonActivity.mActivity.startActivity(intent)
+            self.autodetect_status_text = (
+                "Procure 'Se Pique' na lista e ative. Depois volte pra essa tela."
+            )
+        except Exception:
+            self.autodetect_status_text = "Nao consegui abrir as configuracoes."
+
+    def _poll_offer(self, _dt):
+        data = read_last_offer()
+        if not data:
+            return
+        parsed = parse_offer_texts(data.get("texts", []))
+        if not parsed:
+            return
+        self.ids.pickup_input.text = "{:.2f}".format(parsed["pickup_km"])
+        self.ids.ride_input.text = "{:.2f}".format(parsed["ride_km"])
+        self.ids.value_input.text = "{:.2f}".format(parsed["offered_value"])
+        self.autodetect_status_text = "Pedido detectado agora ({}).".format(
+            data.get("package", "?")
+        )
+        self.analyze()
+
+
 class HistoryScreen(Screen):
     def go_back(self):
         self.manager.current = "main"
@@ -544,6 +771,7 @@ class TaximetroApp(App):
         self._request_android_permissions()
         sm = ScreenManager()
         sm.add_widget(MainScreen())
+        sm.add_widget(OfferScreen())
         sm.add_widget(HistoryScreen())
         return sm
 

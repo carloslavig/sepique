@@ -20,6 +20,8 @@ android.archs = arm64-v8a,armeabi-v7a
 android.accept_sdk_license = True
 android.build_tools = 34.0.0
 android.sdk_path = /usr/local/lib/android/sdk
+android.add_src = android-extra/src
+android.add_resources = android-extra/res
 
 [buildozer]
 log_level = 2

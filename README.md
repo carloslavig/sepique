@@ -36,6 +36,34 @@ pasta de dados do app no celular. O menu no canto superior esquerdo (botão
 "=") abre o histórico com todas as corridas já feitas, mais recentes
 primeiro.
 
+## "Vale a corrida?" — analisar pedidos de outros apps
+
+Tela acessível pelo menu ("=" no topo). Regra: o valor oferecido precisa
+cobrir pelo menos R$ 2,00 por km, contando a distância até o passageiro +
+a distância da corrida. Lógica pura em
+[`taximetro/offer.py`](taximetro/offer.py), testada em
+[`tests/test_offer.py`](tests/test_offer.py).
+
+Duas formas de preencher os campos:
+
+1. **Manual** — sempre funciona: você digita o que o outro app mostrou
+   (distância até o passageiro, distância da corrida, valor) e toca em
+   "Analisar".
+2. **Automática** (best-effort) — um serviço de Acessibilidade do Android
+   (`android-extra/src/.../RideOfferAccessibilityService.java`) lê a tela
+   quando o Urbano Norte, inDriver ou PopMove mostram um pedido, e o app
+   tenta extrair os números sozinho (`taximetro/offer_bridge.py` +
+   `parse_offer_texts` em `taximetro/offer.py`). Isso **exige ativação
+   manual** em Configurações → Acessibilidade → Se Pique (o Android não
+   deixa nenhum app ativar isso sozinho, é proposital) — o botão "Ativar
+   nas configurações do Android" na tela abre esse caminho direto.
+
+   **Importante:** a extração automática é uma heurística (procura "R$" e
+   "km" no texto da tela) que não foi validada contra as telas reais
+   desses 3 apps — só dá pra afinar isso testando no aparelho de verdade e
+   ajustando `parse_offer_texts` conforme o que realmente aparecer. Se não
+   funcionar bem, o modo manual continua ali do lado, garantido.
+
 ## Rodando no computador (para testar a interface)
 
 ```bash
@@ -81,6 +109,14 @@ buildozer android debug
 ```
 
 O APK sai em `bin/sepique-0.1.0-arm64-v8a_armeabi-v7a-debug.apk`.
+
+**Depois de um checkout limpo do python-for-android** (ele mora dentro de
+`.buildozer/`, que fica fora do git), rode
+`python3 scripts/patch_p4a.py <caminho para .../platform/python-for-android>`
+pra reaplicar os ajustes manuais feitos nele (versão do pip fixada,
+flags extras no pip install pra aceitar wheels Android, e o `<service>` do
+Acessibilidade injetado no template do manifesto — nenhum dos três tem um
+jeito oficial de configurar via `buildozer.spec`).
 
 ## Próximos passos (fora do escopo deste MVP)
 
