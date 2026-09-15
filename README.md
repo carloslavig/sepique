@@ -19,6 +19,14 @@ A tarifa é travada no momento em que a corrida é iniciada (não muda no meio
 da corrida). A lógica fica isolada em [`taximetro/fare.py`](taximetro/fare.py)
 e tem testes em [`tests/test_fare.py`](tests/test_fare.py).
 
+### Taxa de espera (trânsito parado)
+
+O ritmo esperado é 1 km a cada 3 minutos. Se o carro ficar abaixo disso, soma
+R$ 0,60 por minuto adicional que continuar devendo essa distância, até
+cumprir o 1 km (aí o ciclo de 3 minutos reinicia). Lógica em
+[`WaitingFeeTracker`](taximetro/fare.py), testada em
+[`tests/test_waiting.py`](tests/test_waiting.py).
+
 ## Nome/telefone do cliente e histórico
 
 Antes de iniciar a corrida dá pra preencher (opcionalmente) o nome e telefone
@@ -77,7 +85,6 @@ O APK sai em `bin/sepique-0.1.0-arm64-v8a_armeabi-v7a-debug.apk`.
 ## Próximos passos (fora do escopo deste MVP)
 
 - Tela de "corrida em andamento" separada da de configuração
-- Cálculo de tempo parado (bandeira 2 tradicional) se for desejado
 - Publicação assinada (release, não debug) para distribuir fora do GitHub
 - Alerta de "corrida abaixo do valor justo": comparar em tempo real com
   corridas equivalentes de outros apps (Uber/99) e avisar se o valor

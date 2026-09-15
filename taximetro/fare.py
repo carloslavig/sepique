@@ -49,3 +49,38 @@ def resolve_rate(
         rate = festa_rate if festa_rate is not None else RATE_WEEKEND_DEFAULT
         return max(RATE_MIN, min(RATE_MAX, rate))
     return default_rate_per_km(dt)
+
+
+# Taxa de espera: se o carro não andar pelo menos WAITING_MIN_KM a cada
+# WAITING_CHECK_INTERVAL_MIN minutos (trânsito parado, sinal etc.), soma
+# WAITING_FEE_PER_MINUTE a cada minuto adicional que ficar devendo essa
+# distância, até que ela seja cumprida (aí o ciclo de checagem reinicia).
+WAITING_CHECK_INTERVAL_MIN = 3
+WAITING_MIN_KM = 1.0
+WAITING_FEE_PER_MINUTE = 0.60
+
+
+class WaitingFeeTracker:
+    """Acumula a taxa de espera minuto a minuto ao longo de uma corrida."""
+
+    def __init__(self) -> None:
+        self.extra_fee = 0.0
+        self._checkpoint_km = 0.0
+        self._minutes_since_checkpoint = 0
+
+    def tick_minute(self, total_distance_km: float) -> float:
+        """Chamar uma vez por minuto decorrido de corrida.
+
+        Retorna o valor acumulado de taxa de espera (R$) até agora.
+        """
+        self._minutes_since_checkpoint += 1
+        if self._minutes_since_checkpoint < WAITING_CHECK_INTERVAL_MIN:
+            return self.extra_fee
+
+        covered = total_distance_km - self._checkpoint_km
+        if covered < WAITING_MIN_KM:
+            self.extra_fee += WAITING_FEE_PER_MINUTE
+        else:
+            self._checkpoint_km = total_distance_km
+            self._minutes_since_checkpoint = 0
+        return self.extra_fee

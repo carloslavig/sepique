@@ -3,20 +3,21 @@
 Tela do taxímetro: inicia/finaliza corrida, rastreia km via GPS e calcula o
 valor em tempo real conforme a tarifa do momento (dia da semana / horário),
 com opção de marcar "festa" para escolher a tarifa manualmente (vale só nos
-fins de semana) e campos opcionais de nome/telefone do cliente. Cada corrida
-finalizada é salva num histórico local, acessível pelo menu no canto
-superior esquerdo.
+fins de semana), campos opcionais de nome/telefone do cliente, e uma taxa de
+espera quando o carro fica parado no trânsito. Cada corrida finalizada é
+salva num histórico local, acessível pelo menu no canto superior esquerdo.
 """
 import os
 from datetime import datetime
 
 from kivy.app import App
 from kivy.clock import Clock
+from kivy.core.window import Window
+from kivy.factory import Factory
 from kivy.lang import Builder
+from kivy.metrics import dp
 from kivy.properties import BooleanProperty, NumericProperty, StringProperty
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
-from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.uix.screenmanager import Screen, ScreenManager
 from kivy.utils import platform
@@ -27,6 +28,7 @@ from taximetro.fare import (
     RATE_MAX,
     RATE_MIN,
     RATE_WEEKEND_DEFAULT,
+    WaitingFeeTracker,
     is_weekend,
     resolve_rate,
 )
@@ -37,129 +39,271 @@ try:
 except Exception:
     gps = None
 
+# Paleta escura, estilo app de corrida (Uber/99/Urbano Norte).
+BG = "0.055, 0.06, 0.075, 1"
+CARD_BG = "0.11, 0.115, 0.14, 1"
+INPUT_BG = "0.16, 0.165, 0.2, 1"
+ACCENT = "0.05, 0.85, 0.55, 1"
+ACCENT_DIM = "0.05, 0.85, 0.55, 0.16"
+DANGER = "0.95, 0.30, 0.38, 1"
+TEXT_PRIMARY = "1, 1, 1, 1"
+TEXT_SECONDARY = "0.66, 0.68, 0.74, 1"
+TEXT_MUTED = "0.46, 0.48, 0.54, 1"
+BORDER = "0.2, 0.21, 0.26, 1"
+
 KV = """
 <TopBar@BoxLayout>:
     menu_callback: None
     title_text: ""
     size_hint_y: None
-    height: dp(48)
-    spacing: dp(8)
+    height: dp(52)
+    spacing: dp(10)
+    padding: [0, dp(4)]
 
     Button:
         text: "="
-        font_size: "22sp"
+        font_size: "20sp"
+        bold: True
+        color: __TEXT_PRIMARY__
+        background_normal: ""
+        background_down: ""
+        background_color: 0, 0, 0, 0
         size_hint_x: None
-        width: dp(48)
+        width: dp(44)
+        canvas.before:
+            Color:
+                rgba: __CARD_BG__
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [12]
         on_release: root.menu_callback() if root.menu_callback else None
 
     Label:
         text: root.title_text
-        font_size: "22sp"
+        font_size: "20sp"
+        bold: True
+        color: __TEXT_PRIMARY__
         halign: "left"
         valign: "middle"
         text_size: self.size
 
+<Card@BoxLayout>:
+    orientation: "vertical"
+    padding: dp(18)
+    spacing: dp(6)
+    canvas.before:
+        Color:
+            rgba: __CARD_BG__
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [18]
+
+<FieldRow@BoxLayout>:
+    size_hint_y: None
+    height: dp(46)
+    canvas.before:
+        Color:
+            rgba: __INPUT_BG__
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [12]
+
+<StyledInput@TextInput>:
+    background_normal: ""
+    background_active: ""
+    background_color: 0, 0, 0, 0
+    foreground_color: __TEXT_PRIMARY__
+    hint_text_color: __TEXT_MUTED__
+    cursor_color: __ACCENT__
+    padding: [dp(14), dp(12)]
+    multiline: False
+
+<PillButton@Button>:
+    bg_color: __ACCENT__
+    background_normal: ""
+    background_down: ""
+    background_color: 0, 0, 0, 0
+    bold: True
+    font_size: "19sp"
+    color: __TEXT_PRIMARY__
+    canvas.before:
+        Color:
+            rgba: self.bg_color
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [16]
+
+<RideCard@BoxLayout>:
+    orientation: "vertical"
+    size_hint_y: None
+    height: dp(84)
+    padding: dp(14)
+    spacing: dp(4)
+    canvas.before:
+        Color:
+            rgba: __CARD_BG__
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [14]
+
 <MainScreen>:
     name: "main"
+    canvas.before:
+        Color:
+            rgba: __BG__
+        Rectangle:
+            pos: self.pos
+            size: self.size
 
     BoxLayout:
         orientation: "vertical"
-        padding: dp(24)
-        spacing: dp(14)
+        padding: dp(20)
+        spacing: dp(16)
 
         TopBar:
             title_text: "Se Pique"
             menu_callback: root.open_menu
 
-        Label:
-            text: root.status_text
-            font_size: "16sp"
+        Card:
             size_hint_y: None
-            height: dp(24)
-
-        Label:
-            text: "[b]R$ {{:.2f}}[/b]".format(root.fare)
-            markup: True
-            font_size: "52sp"
-            size_hint_y: None
-            height: dp(72)
-
-        Label:
-            text: "{{:.2f}} km   R$ {{:.2f}}/km  (+ R$ {{:.2f}} bandeirada)".format(root.distance_km, root.rate_per_km, {flag_drop})
-            font_size: "14sp"
-            size_hint_y: None
-            height: dp(22)
-
-        TextInput:
-            id: name_input
-            hint_text: "Nome do cliente (opcional)"
-            multiline: False
-            size_hint_y: None
-            height: dp(44)
-            disabled: root.running
-            on_text: root.customer_name = self.text
-
-        TextInput:
-            id: phone_input
-            hint_text: "Telefone (opcional)"
-            multiline: False
-            size_hint_y: None
-            height: dp(44)
-            disabled: root.running
-            on_text: root.customer_phone = self.text
-
-        BoxLayout:
-            size_hint_y: None
-            height: dp(44)
-            spacing: dp(12)
-            disabled: root.running
-
-            CheckBox:
-                id: festa_check
-                size_hint_x: None
-                width: dp(48)
-                active: root.festa
-                on_active: root.set_festa(self.active)
+            height: dp(168)
 
             Label:
-                text: "Festa (fim de semana): escolher valor"
+                text: root.status_text
                 font_size: "14sp"
-
-        BoxLayout:
-            size_hint_y: None
-            height: dp(44)
-            spacing: dp(12)
-            disabled: not root.festa or root.running
+                color: __TEXT_SECONDARY__
+                size_hint_y: None
+                height: dp(20)
+                halign: "left"
+                text_size: self.size
 
             Label:
-                text: "R$ {{:.2f}}/km".format(root.festa_rate)
-                size_hint_x: None
-                width: dp(90)
+                text: "R$ {:.2f}".format(root.fare)
+                bold: True
+                font_size: "48sp"
+                color: __TEXT_PRIMARY__
+                size_hint_y: None
+                height: dp(60)
+                halign: "left"
+                text_size: self.size
 
-            Slider:
-                id: festa_slider
-                min: {rate_min}
-                max: {rate_max}
-                step: 0.10
-                value: root.festa_rate
-                on_value: root.set_festa_rate(self.value)
+            Label:
+                text: "{:.2f} km  ({:.0f} m)   -   R$ {:.2f}/km".format(root.distance_km, root.distance_km * 1000, root.rate_per_km)
+                font_size: "13sp"
+                color: __TEXT_SECONDARY__
+                size_hint_y: None
+                height: dp(20)
+                halign: "left"
+                text_size: self.size
+
+            Label:
+                text: "+ R$ {:.2f} de espera (parado no transito)".format(root.waiting_fee)
+                font_size: "12sp"
+                color: __ACCENT__
+                size_hint_y: None
+                height: dp(18) if root.waiting_fee > 0 else 0
+                opacity: 1 if root.waiting_fee > 0 else 0
+                halign: "left"
+                text_size: self.size
+
+        Card:
+            size_hint_y: None
+            height: dp(120)
+
+            Label:
+                text: "Cliente (opcional)"
+                font_size: "12sp"
+                color: __TEXT_MUTED__
+                size_hint_y: None
+                height: dp(16)
+                halign: "left"
+                text_size: self.size
+
+            FieldRow:
+                StyledInput:
+                    id: name_input
+                    hint_text: "Nome"
+                    disabled: root.running
+                    on_text: root.customer_name = self.text
+
+            FieldRow:
+                StyledInput:
+                    id: phone_input
+                    hint_text: "Telefone"
+                    disabled: root.running
+                    on_text: root.customer_phone = self.text
+
+        Card:
+            size_hint_y: None
+            height: dp(108) if root.festa else dp(60)
+            disabled: root.running
+
+            BoxLayout:
+                size_hint_y: None
+                height: dp(28)
+
+                Label:
+                    text: "Festa (fim de semana): escolher valor"
+                    font_size: "14sp"
+                    color: __TEXT_PRIMARY__
+                    halign: "left"
+                    text_size: self.size
+
+                Switch:
+                    size_hint_x: None
+                    width: dp(58)
+                    active: root.festa
+                    on_active: root.set_festa(self.active)
+
+            BoxLayout:
+                size_hint_y: None
+                height: dp(36) if root.festa else 0
+                opacity: 1 if root.festa else 0
+                spacing: dp(12)
+                disabled: not root.festa
+
+                Label:
+                    text: "R$ {:.2f}/km".format(root.festa_rate)
+                    color: __TEXT_SECONDARY__
+                    size_hint_x: None
+                    width: dp(84)
+
+                Slider:
+                    id: festa_slider
+                    min: __RATE_MIN__
+                    max: __RATE_MAX__
+                    step: 0.10
+                    value: root.festa_rate
+                    cursor_size: dp(20), dp(20)
+                    on_value: root.set_festa_rate(self.value)
 
         Widget:
 
-        Button:
+        PillButton:
             text: "Iniciar corrida" if not root.running else "Finalizar corrida"
-            font_size: "20sp"
+            bg_color: __DANGER__ if root.running else __ACCENT__
             size_hint_y: None
-            height: dp(60)
+            height: dp(58)
             on_release: root.toggle_ride()
 
 <HistoryScreen>:
     name: "history"
+    canvas.before:
+        Color:
+            rgba: __BG__
+        Rectangle:
+            pos: self.pos
+            size: self.size
 
     BoxLayout:
         orientation: "vertical"
-        padding: dp(24)
-        spacing: dp(14)
+        padding: dp(20)
+        spacing: dp(16)
 
         TopBar:
             title_text: "Historico de corridas"
@@ -171,9 +315,26 @@ KV = """
                 orientation: "vertical"
                 size_hint_y: None
                 height: self.minimum_height
-                spacing: dp(8)
-""".format(rate_min=RATE_MIN, rate_max=RATE_MAX, flag_drop=FLAG_DROP)
+                spacing: dp(10)
+"""
 
+for _token, _value in {
+    "__BG__": BG,
+    "__CARD_BG__": CARD_BG,
+    "__INPUT_BG__": INPUT_BG,
+    "__ACCENT__": ACCENT,
+    "__ACCENT_DIM__": ACCENT_DIM,
+    "__DANGER__": DANGER,
+    "__TEXT_PRIMARY__": TEXT_PRIMARY,
+    "__TEXT_SECONDARY__": TEXT_SECONDARY,
+    "__TEXT_MUTED__": TEXT_MUTED,
+    "__BORDER__": BORDER,
+    "__RATE_MIN__": str(RATE_MIN),
+    "__RATE_MAX__": str(RATE_MAX),
+}.items():
+    KV = KV.replace(_token, _value)
+
+Window.clearcolor = tuple(float(x) for x in BG.split(","))
 Builder.load_string(KV)
 
 
@@ -185,6 +346,7 @@ class MainScreen(Screen):
     rate_per_km = NumericProperty(0.0)
     distance_km = NumericProperty(0.0)
     fare = NumericProperty(0.0)
+    waiting_fee = NumericProperty(0.0)
     customer_name = StringProperty("")
     customer_phone = StringProperty("")
 
@@ -192,10 +354,12 @@ class MainScreen(Screen):
         super().__init__(**kwargs)
         self._last_lat = None
         self._last_lon = None
+        self._waiting_tracker = None
+        self._waiting_event = None
 
     def open_menu(self):
         content = BoxLayout(orientation="vertical", spacing=10, padding=10)
-        history_btn = Button(
+        history_btn = Factory.PillButton(
             text="Historico de corridas", size_hint_y=None, height=48
         )
         popup = Popup(
@@ -227,12 +391,15 @@ class MainScreen(Screen):
         self._last_lon = None
         self._started_at = datetime.now()
         self.distance_km = 0.0
-        self.fare = FLAG_DROP
+        self.waiting_fee = 0.0
+        self._waiting_tracker = WaitingFeeTracker()
         self.rate_per_km = resolve_rate(
             self._started_at, festa=self.festa, festa_rate=self.festa_rate
         )
+        self._recompute_fare()
         self.running = True
         self.status_text = "Corrida em andamento..."
+        self._waiting_event = Clock.schedule_interval(self._on_waiting_tick, 60)
         if gps is not None:
             try:
                 gps.configure(on_location=self._on_location, on_status=self._on_status)
@@ -245,6 +412,9 @@ class MainScreen(Screen):
     def _stop_ride(self):
         self.running = False
         self.status_text = "Corrida finalizada"
+        if self._waiting_event is not None:
+            self._waiting_event.cancel()
+            self._waiting_event = None
         if gps is not None:
             try:
                 gps.stop()
@@ -265,6 +435,15 @@ class MainScreen(Screen):
         self.ids.name_input.text = ""
         self.ids.phone_input.text = ""
 
+    def _recompute_fare(self):
+        self.fare = FLAG_DROP + self.distance_km * self.rate_per_km + self.waiting_fee
+
+    def _on_waiting_tick(self, _dt):
+        if self._waiting_tracker is None:
+            return
+        self.waiting_fee = self._waiting_tracker.tick_minute(self.distance_km)
+        self._recompute_fare()
+
     def _on_status(self, stype, status):
         pass
 
@@ -277,7 +456,7 @@ class MainScreen(Screen):
             step_km = haversine_km(self._last_lat, self._last_lon, lat, lon)
             if step_km <= MAX_PLAUSIBLE_STEP_KM:
                 self.distance_km += step_km
-                self.fare = FLAG_DROP + self.distance_km * self.rate_per_km
+                self._recompute_fare()
         self._last_lat = lat
         self._last_lon = lon
 
@@ -295,38 +474,55 @@ class HistoryScreen(Screen):
         app = App.get_running_app()
         rides = list_rides(app.db_path)
         if not rides:
-            container.add_widget(
-                Label(
+            empty = Factory.Card(size_hint_y=None, height=60)
+            empty.add_widget(
+                Factory.Label(
                     text="Nenhuma corrida registrada ainda.",
-                    size_hint_y=None,
-                    height=40,
+                    color=[float(x) for x in TEXT_SECONDARY.split(",")],
                 )
             )
+            container.add_widget(empty)
             return
         for ride in rides:
             who = ride.customer_name or "Sem nome"
             if ride.customer_phone:
-                who += " - " + ride.customer_phone
-            text = (
-                "[b]{date}[/b]  -  {who}\n"
-                "{km:.2f} km x R$ {rate:.2f}/km  ->  [b]R$ {fare:.2f}[/b]"
-            ).format(
-                date=ride.started_at,
-                who=who,
-                km=ride.distance_km,
-                rate=ride.rate_per_km,
-                fare=ride.fare,
-            )
-            container.add_widget(
-                Label(
-                    text=text,
+                who += "  -  " + ride.customer_phone
+            card = Factory.RideCard()
+            card.add_widget(
+                Factory.Label(
+                    text="[b]{date}[/b]  -  {who}".format(date=ride.started_at, who=who),
                     markup=True,
-                    size_hint_y=None,
-                    height=60,
+                    color=[float(x) for x in TEXT_PRIMARY.split(",")],
+                    font_size="14sp",
                     halign="left",
                     valign="middle",
+                    text_size=(Window.width - dp(72), None),
+                    size_hint_y=None,
+                    height=22,
                 )
             )
+            card.add_widget(
+                Factory.Label(
+                    text=(
+                        "{km:.2f} km ({m:.0f} m) x R$ {rate:.2f}/km  ->  "
+                        "[b]R$ {fare:.2f}[/b]"
+                    ).format(
+                        km=ride.distance_km,
+                        m=ride.distance_km * 1000,
+                        rate=ride.rate_per_km,
+                        fare=ride.fare,
+                    ),
+                    markup=True,
+                    color=[float(x) for x in TEXT_SECONDARY.split(",")],
+                    font_size="13sp",
+                    halign="left",
+                    valign="middle",
+                    text_size=(Window.width - dp(72), None),
+                    size_hint_y=None,
+                    height=22,
+                )
+            )
+            container.add_widget(card)
 
 
 class TaximetroApp(App):
