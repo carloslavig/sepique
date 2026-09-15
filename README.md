@@ -19,6 +19,15 @@ A tarifa é travada no momento em que a corrida é iniciada (não muda no meio
 da corrida). A lógica fica isolada em [`taximetro/fare.py`](taximetro/fare.py)
 e tem testes em [`tests/test_fare.py`](tests/test_fare.py).
 
+## Nome/telefone do cliente e histórico
+
+Antes de iniciar a corrida dá pra preencher (opcionalmente) o nome e telefone
+do cliente. Ao finalizar, a corrida é salva num banco SQLite local
+(`taximetro/storage.py`, testado em `tests/test_storage.py`), guardado na
+pasta de dados do app no celular. O menu no canto superior esquerdo (botão
+"=") abre o histórico com todas as corridas já feitas, mais recentes
+primeiro.
+
 ## Rodando no computador (para testar a interface)
 
 ```bash
@@ -67,7 +76,6 @@ O APK sai em `bin/sepique-0.1.0-arm64-v8a_armeabi-v7a-debug.apk`.
 
 ## Próximos passos (fora do escopo deste MVP)
 
-- Persistir histórico de corridas
 - Tela de "corrida em andamento" separada da de configuração
 - Cálculo de tempo parado (bandeira 2 tradicional) se for desejado
 - Publicação assinada (release, não debug) para distribuir fora do GitHub
