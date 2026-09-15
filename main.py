@@ -567,14 +567,54 @@ class MainScreen(Screen):
         self.running = True
         self.status_text = "Corrida em andamento..."
         self._waiting_event = Clock.schedule_interval(self._on_waiting_tick, 60)
-        if gps is not None:
-            try:
-                gps.configure(on_location=self._on_location, on_status=self._on_status)
-                gps.start(minTime=1000, minDistance=5)
-            except NotImplementedError:
-                self.status_text = "GPS nao disponivel neste dispositivo"
-        else:
+        self._start_gps()
+
+    def _start_gps(self):
+        if gps is None:
             self.status_text = "GPS nao disponivel (plyer ausente)"
+            return
+        if platform == "android" and not self._has_location_permission():
+            self.status_text = "Sem permissao de localizacao - solicitando..."
+            self._request_location_permission()
+            return
+        self._begin_gps_tracking()
+
+    def _has_location_permission(self):
+        try:
+            from android.permissions import Permission, check_permission
+
+            return check_permission(Permission.ACCESS_FINE_LOCATION) or check_permission(
+                Permission.ACCESS_COARSE_LOCATION
+            )
+        except Exception:
+            return True
+
+    def _request_location_permission(self):
+        try:
+            from android.permissions import Permission, request_permissions
+
+            request_permissions(
+                [Permission.ACCESS_FINE_LOCATION, Permission.ACCESS_COARSE_LOCATION],
+                self._on_permission_result,
+            )
+        except Exception:
+            self.status_text = "Nao foi possivel solicitar permissao de localizacao"
+
+    def _on_permission_result(self, _permissions, grants):
+        if not any(grants):
+            self.status_text = "Permissao de localizacao negada"
+            return
+        if not self.running:
+            return
+        self._begin_gps_tracking()
+
+    def _begin_gps_tracking(self):
+        try:
+            gps.configure(on_location=self._on_location, on_status=self._on_status)
+            gps.start(minTime=1000, minDistance=5)
+            self.status_text = "Corrida em andamento..."
+        except Exception as exc:
+            self.status_text = "Erro ao iniciar GPS: {}".format(exc)
 
     def _stop_ride(self):
         self.running = False
@@ -585,7 +625,7 @@ class MainScreen(Screen):
         if gps is not None:
             try:
                 gps.stop()
-            except NotImplementedError:
+            except Exception:
                 pass
         app = App.get_running_app()
         save_ride(
@@ -612,7 +652,10 @@ class MainScreen(Screen):
         self._recompute_fare()
 
     def _on_status(self, stype, status):
-        pass
+        if stype == "provider-disabled":
+            self.status_text = "Localizacao desligada no celular"
+        elif stype == "provider-enabled" and self.running:
+            self.status_text = "Corrida em andamento..."
 
     def _on_location(self, **kwargs):
         lat = kwargs.get("lat")
