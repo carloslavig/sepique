@@ -50,6 +50,7 @@ TEXT_PRIMARY = "1, 1, 1, 1"
 TEXT_SECONDARY = "0.66, 0.68, 0.74, 1"
 TEXT_MUTED = "0.46, 0.48, 0.54, 1"
 BORDER = "0.2, 0.21, 0.26, 1"
+BUTTON_TEXT_BLUE = "0.35, 0.65, 1, 1"
 
 KV = """
 <TopBar@BoxLayout>:
@@ -60,23 +61,10 @@ KV = """
     spacing: dp(10)
     padding: [0, dp(4)]
 
-    Button:
+    IconButton:
         text: "="
-        font_size: "20sp"
-        bold: True
-        color: __TEXT_PRIMARY__
-        background_normal: ""
-        background_down: ""
-        background_color: 0, 0, 0, 0
         size_hint_x: None
         width: dp(44)
-        canvas.before:
-            Color:
-                rgba: __CARD_BG__
-            RoundedRectangle:
-                pos: self.pos
-                size: self.size
-                radius: [12]
         on_release: root.menu_callback() if root.menu_callback else None
 
     Label:
@@ -87,6 +75,22 @@ KV = """
         halign: "left"
         valign: "middle"
         text_size: self.size
+
+<IconButton@ButtonBehavior+BoxLayout>:
+    text: ""
+    canvas.before:
+        Color:
+            rgba: __CARD_BG__
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [12]
+
+    Label:
+        text: root.text
+        font_size: "20sp"
+        bold: True
+        color: __TEXT_PRIMARY__
 
 <Card@BoxLayout>:
     orientation: "vertical"
@@ -121,14 +125,9 @@ KV = """
     padding: [dp(14), dp(12)]
     multiline: False
 
-<PillButton@Button>:
+<PillButton@ButtonBehavior+BoxLayout>:
+    text: ""
     bg_color: __ACCENT__
-    background_normal: ""
-    background_down: ""
-    background_color: 0, 0, 0, 0
-    bold: True
-    font_size: "19sp"
-    color: __TEXT_PRIMARY__
     canvas.before:
         Color:
             rgba: self.bg_color
@@ -136,6 +135,12 @@ KV = """
             pos: self.pos
             size: self.size
             radius: [16]
+
+    Label:
+        text: root.text
+        bold: True
+        font_size: "19sp"
+        color: __BUTTON_TEXT_BLUE__
 
 <RideCard@BoxLayout>:
     orientation: "vertical"
@@ -162,134 +167,142 @@ KV = """
 
     BoxLayout:
         orientation: "vertical"
-        padding: dp(20)
-        spacing: dp(16)
+        padding: [dp(20), dp(12)]
+        spacing: dp(10)
 
         TopBar:
             title_text: "Se Pique"
             menu_callback: root.open_menu
 
-        Card:
-            size_hint_y: None
-            height: dp(168)
-
-            Label:
-                text: root.status_text
-                font_size: "14sp"
-                color: __TEXT_SECONDARY__
-                size_hint_y: None
-                height: dp(20)
-                halign: "left"
-                text_size: self.size
-
-            Label:
-                text: "R$ {:.2f}".format(root.fare)
-                bold: True
-                font_size: "48sp"
-                color: __TEXT_PRIMARY__
-                size_hint_y: None
-                height: dp(60)
-                halign: "left"
-                text_size: self.size
-
-            Label:
-                text: "{:.2f} km  ({:.0f} m)   -   R$ {:.2f}/km".format(root.distance_km, root.distance_km * 1000, root.rate_per_km)
-                font_size: "13sp"
-                color: __TEXT_SECONDARY__
-                size_hint_y: None
-                height: dp(20)
-                halign: "left"
-                text_size: self.size
-
-            Label:
-                text: "+ R$ {:.2f} de espera (parado no transito)".format(root.waiting_fee)
-                font_size: "12sp"
-                color: __ACCENT__
-                size_hint_y: None
-                height: dp(18) if root.waiting_fee > 0 else 0
-                opacity: 1 if root.waiting_fee > 0 else 0
-                halign: "left"
-                text_size: self.size
-
-        Card:
-            size_hint_y: None
-            height: dp(120)
-
-            Label:
-                text: "Cliente (opcional)"
-                font_size: "12sp"
-                color: __TEXT_MUTED__
-                size_hint_y: None
-                height: dp(16)
-                halign: "left"
-                text_size: self.size
-
-            FieldRow:
-                StyledInput:
-                    id: name_input
-                    hint_text: "Nome"
-                    disabled: root.running
-                    on_text: root.customer_name = self.text
-
-            FieldRow:
-                StyledInput:
-                    id: phone_input
-                    hint_text: "Telefone"
-                    disabled: root.running
-                    on_text: root.customer_phone = self.text
-
-        Card:
-            size_hint_y: None
-            height: dp(108) if root.festa else dp(60)
-            disabled: root.running
+        ScrollView:
+            do_scroll_x: False
 
             BoxLayout:
+                orientation: "vertical"
+                spacing: dp(16)
+                padding: [0, dp(6)]
                 size_hint_y: None
-                height: dp(28)
+                height: self.minimum_height
 
-                Label:
-                    text: "Festa (fim de semana): escolher valor"
-                    font_size: "14sp"
-                    color: __TEXT_PRIMARY__
-                    halign: "left"
-                    text_size: self.size
+                Card:
+                    size_hint_y: None
+                    height: dp(168)
 
-                Switch:
-                    size_hint_x: None
-                    width: dp(58)
-                    active: root.festa
-                    on_active: root.set_festa(self.active)
+                    Label:
+                        text: root.status_text
+                        font_size: "14sp"
+                        color: __TEXT_SECONDARY__
+                        size_hint_y: None
+                        height: dp(20)
+                        halign: "left"
+                        text_size: self.size
 
-            BoxLayout:
-                size_hint_y: None
-                height: dp(36) if root.festa else 0
-                opacity: 1 if root.festa else 0
-                spacing: dp(12)
-                disabled: not root.festa
+                    Label:
+                        text: "R$ {:.2f}".format(root.fare)
+                        bold: True
+                        font_size: "48sp"
+                        color: __TEXT_PRIMARY__
+                        size_hint_y: None
+                        height: dp(60)
+                        halign: "left"
+                        text_size: self.size
 
-                Label:
-                    text: "R$ {:.2f}/km".format(root.festa_rate)
-                    color: __TEXT_SECONDARY__
-                    size_hint_x: None
-                    width: dp(84)
+                    Label:
+                        text: "{:.2f} km  ({:.0f} m)   -   R$ {:.2f}/km".format(root.distance_km, root.distance_km * 1000, root.rate_per_km)
+                        font_size: "13sp"
+                        color: __TEXT_SECONDARY__
+                        size_hint_y: None
+                        height: dp(20)
+                        halign: "left"
+                        text_size: self.size
 
-                Slider:
-                    id: festa_slider
-                    min: __RATE_MIN__
-                    max: __RATE_MAX__
-                    step: 0.10
-                    value: root.festa_rate
-                    cursor_size: dp(20), dp(20)
-                    on_value: root.set_festa_rate(self.value)
+                    Label:
+                        text: "+ R$ {:.2f} de espera (parado no transito)".format(root.waiting_fee)
+                        font_size: "12sp"
+                        color: __ACCENT__
+                        size_hint_y: None
+                        height: dp(18) if root.waiting_fee > 0 else 0
+                        opacity: 1 if root.waiting_fee > 0 else 0
+                        halign: "left"
+                        text_size: self.size
 
-        Widget:
+                Card:
+                    size_hint_y: None
+                    height: dp(120)
 
-        PillButton:
-            text: "Iniciar corrida" if not root.running else "Finalizar corrida"
-            bg_color: __DANGER__ if root.running else __ACCENT__
-            size_hint_y: None
-            height: dp(58)
-            on_release: root.toggle_ride()
+                    Label:
+                        text: "Cliente (opcional)"
+                        font_size: "12sp"
+                        color: __TEXT_MUTED__
+                        size_hint_y: None
+                        height: dp(16)
+                        halign: "left"
+                        text_size: self.size
+
+                    FieldRow:
+                        StyledInput:
+                            id: name_input
+                            hint_text: "Nome"
+                            disabled: root.running
+                            on_text: root.customer_name = self.text
+
+                    FieldRow:
+                        StyledInput:
+                            id: phone_input
+                            hint_text: "Telefone"
+                            disabled: root.running
+                            on_text: root.customer_phone = self.text
+
+                Card:
+                    size_hint_y: None
+                    height: dp(108) if root.festa else dp(60)
+                    disabled: root.running
+
+                    BoxLayout:
+                        size_hint_y: None
+                        height: dp(28)
+
+                        Label:
+                            text: "Festa (fim de semana): escolher valor"
+                            font_size: "14sp"
+                            color: __TEXT_PRIMARY__
+                            halign: "left"
+                            text_size: self.size
+
+                        Switch:
+                            size_hint_x: None
+                            width: dp(58)
+                            active: root.festa
+                            on_active: root.set_festa(self.active)
+
+                    BoxLayout:
+                        size_hint_y: None
+                        height: dp(36) if root.festa else 0
+                        opacity: 1 if root.festa else 0
+                        spacing: dp(12)
+                        disabled: not root.festa
+
+                        Label:
+                            text: "R$ {:.2f}/km".format(root.festa_rate)
+                            color: __TEXT_SECONDARY__
+                            size_hint_x: None
+                            width: dp(84)
+
+                        Slider:
+                            id: festa_slider
+                            min: __RATE_MIN__
+                            max: __RATE_MAX__
+                            step: 0.10
+                            value: root.festa_rate
+                            cursor_size: dp(20), dp(20)
+                            on_value: root.set_festa_rate(self.value)
+
+                PillButton:
+                    text: "Iniciar corrida" if not root.running else "Finalizar corrida"
+                    bg_color: __DANGER__ if root.running else __ACCENT__
+                    size_hint_y: None
+                    height: dp(58)
+                    on_release: root.toggle_ride()
 
 <HistoryScreen>:
     name: "history"
@@ -329,6 +342,7 @@ for _token, _value in {
     "__TEXT_SECONDARY__": TEXT_SECONDARY,
     "__TEXT_MUTED__": TEXT_MUTED,
     "__BORDER__": BORDER,
+    "__BUTTON_TEXT_BLUE__": BUTTON_TEXT_BLUE,
     "__RATE_MIN__": str(RATE_MIN),
     "__RATE_MAX__": str(RATE_MAX),
 }.items():
