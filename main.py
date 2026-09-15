@@ -15,7 +15,14 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.utils import platform
 
 from taximetro.distance import MAX_PLAUSIBLE_STEP_KM, haversine_km
-from taximetro.fare import RATE_MAX, RATE_MIN, RATE_WEEKEND_DEFAULT, is_weekend, resolve_rate
+from taximetro.fare import (
+    FLAG_DROP,
+    RATE_MAX,
+    RATE_MIN,
+    RATE_WEEKEND_DEFAULT,
+    is_weekend,
+    resolve_rate,
+)
 
 try:
     from plyer import gps
@@ -138,7 +145,7 @@ class Taximetro(BoxLayout):
         self._last_lat = None
         self._last_lon = None
         self.distance_km = 0.0
-        self.fare = 0.0
+        self.fare = FLAG_DROP
         self.rate_per_km = resolve_rate(
             datetime.now(), festa=self.festa, festa_rate=self.festa_rate
         )
@@ -174,7 +181,7 @@ class Taximetro(BoxLayout):
             step_km = haversine_km(self._last_lat, self._last_lon, lat, lon)
             if step_km <= MAX_PLAUSIBLE_STEP_KM:
                 self.distance_km += step_km
-                self.fare = self.distance_km * self.rate_per_km
+                self.fare = FLAG_DROP + self.distance_km * self.rate_per_km
         self._last_lat = lat
         self._last_lon = lon
 

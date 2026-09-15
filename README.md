@@ -3,9 +3,12 @@
 MVP em Python/Kivy: uma tela que rastreia a corrida pelo GPS do celular e
 calcula o valor em tempo real (taxímetro).
 
-## Regras de tarifa (R$/km)
+## Regras de tarifa
 
-| Quando | Tarifa |
+A corrida começa com uma **bandeirada de R$ 12,00** e soma o valor por km
+rodado em cima disso.
+
+| Quando | Tarifa por km |
 |---|---|
 | Dia de semana, horário comercial (08h–18h) | R$ 2,00 |
 | Dia de semana, fora do horário comercial (noite) | R$ 3,00 |

@@ -5,6 +5,8 @@ from typing import Optional
 RATE_MIN = 2.00
 RATE_MAX = 5.00
 
+FLAG_DROP = 12.00  # bandeirada: valor inicial da corrida, antes de rodar km
+
 RATE_WEEKDAY_COMMERCIAL = 2.00
 RATE_WEEKDAY_NIGHT = 3.00
 RATE_WEEKEND_DEFAULT = 3.50
