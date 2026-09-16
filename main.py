@@ -193,7 +193,7 @@ KV = """
 
                 Card:
                     size_hint_y: None
-                    height: dp(168)
+                    height: dp(192)
 
                     Label:
                         text: root.status_text
@@ -230,6 +230,15 @@ KV = """
                         size_hint_y: None
                         height: dp(18) if root.waiting_fee > 0 else 0
                         opacity: 1 if root.waiting_fee > 0 else 0
+                        halign: "left"
+                        text_size: self.size
+
+                    Label:
+                        text: "GPS recebeu: {} sinal(is)  -  {}".format(root.gps_fix_count, root.last_fix_info)
+                        font_size: "11sp"
+                        color: __TEXT_MUTED__
+                        size_hint_y: None
+                        height: dp(16)
                         halign: "left"
                         text_size: self.size
 
@@ -507,6 +516,8 @@ class MainScreen(Screen):
     waiting_fee = NumericProperty(0.0)
     customer_name = StringProperty("")
     customer_phone = StringProperty("")
+    gps_fix_count = NumericProperty(0)
+    last_fix_info = StringProperty("nenhum sinal de GPS recebido ainda")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -559,6 +570,8 @@ class MainScreen(Screen):
         self._started_at = datetime.now()
         self.distance_km = 0.0
         self.waiting_fee = 0.0
+        self.gps_fix_count = 0
+        self.last_fix_info = "nenhum sinal de GPS recebido ainda"
         self._waiting_tracker = WaitingFeeTracker()
         self.rate_per_km = resolve_rate(
             self._started_at, festa=self.festa, festa_rate=self.festa_rate
@@ -658,8 +671,22 @@ class MainScreen(Screen):
             self.status_text = "Corrida em andamento..."
 
     def _on_location(self, **kwargs):
+        # O plyer entrega esse callback na thread do Android (Looper que
+        # passamos pro requestLocationUpdates), nao na thread do Kivy.
+        # Agendar com Clock.schedule_once garante que a mudanca de estado
+        # (e o redesenho da tela) rode na thread certa.
+        Clock.schedule_once(lambda _dt, kw=kwargs: self._apply_location(**kw), 0)
+
+    def _apply_location(self, **kwargs):
         lat = kwargs.get("lat")
         lon = kwargs.get("lon")
+        accuracy = kwargs.get("accuracy")
+        self.gps_fix_count += 1
+        self.last_fix_info = "lat={:.5f} lon={:.5f} precisao={}m".format(
+            lat if lat is not None else 0.0,
+            lon if lon is not None else 0.0,
+            "{:.0f}".format(accuracy) if accuracy is not None else "?",
+        )
         if lat is None or lon is None:
             return
         if self._last_lat is not None:
