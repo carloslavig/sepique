@@ -350,32 +350,80 @@ KV = """
 
                 Card:
                     size_hint_y: None
-                    height: dp(84)
+                    height: dp(340)
 
                     Label:
-                        text: "Deteccao automatica (Urbano Norte, inDriver, PopMove)"
-                        font_size: "12sp"
-                        color: __TEXT_MUTED__
-                        halign: "left"
-                        text_size: self.size
-                        size_hint_y: None
-                        height: dp(16)
-
-                    Label:
-                        text: root.autodetect_status_text
-                        font_size: "13sp"
-                        color: __TEXT_SECONDARY__
+                        text: "Deteccao automatica"
+                        bold: True
+                        font_size: "15sp"
+                        color: __TEXT_PRIMARY__
                         halign: "left"
                         text_size: self.size
                         size_hint_y: None
                         height: dp(20)
 
+                    Label:
+                        text: "Funciona com Urbano Norte, inDriver e PopMove. Precisa de 2 permissoes especiais, ativadas so uma vez (o Android exige que seja manual, por seguranca):"
+                        font_size: "12sp"
+                        color: __TEXT_SECONDARY__
+                        halign: "left"
+                        valign: "top"
+                        text_size: self.width, None
+                        size_hint_y: None
+                        height: dp(48)
+
+                    Label:
+                        text: "1) Leitura de tela: abre Acessibilidade, procura 'Se Pique' na lista e ativa."
+                        font_size: "12sp"
+                        color: __TEXT_SECONDARY__
+                        halign: "left"
+                        valign: "top"
+                        text_size: self.width, None
+                        size_hint_y: None
+                        height: dp(36)
+
                     PillButton:
-                        text: "Ativar nas configuracoes do Android"
+                        text: "1) Abrir Acessibilidade"
                         bg_color: __CARD_BG__
                         size_hint_y: None
                         height: dp(36)
                         on_release: root.open_accessibility_settings()
+
+                    Label:
+                        text: "2) Bolha por cima da tela: abre a permissao, ative 'Permitir exibicao sobre outros apps' pro Se Pique."
+                        font_size: "12sp"
+                        color: __TEXT_SECONDARY__
+                        halign: "left"
+                        valign: "top"
+                        text_size: self.width, None
+                        size_hint_y: None
+                        height: dp(36)
+
+                    PillButton:
+                        text: "2) Abrir permissao de sobreposicao"
+                        bg_color: __CARD_BG__
+                        size_hint_y: None
+                        height: dp(36)
+                        on_release: root.open_overlay_settings()
+
+                    Label:
+                        text: "Depois disso: quando um pedido aparecer num desses apps, uma bolha 'Se Pique' surge na tela — toque nela pra abrir o app ja com os campos preenchidos e a analise pronta."
+                        font_size: "12sp"
+                        color: __TEXT_MUTED__
+                        halign: "left"
+                        valign: "top"
+                        text_size: self.width, None
+                        size_hint_y: None
+                        height: dp(48)
+
+                    Label:
+                        text: root.autodetect_status_text
+                        font_size: "13sp"
+                        color: __ACCENT__
+                        halign: "left"
+                        text_size: self.size
+                        size_hint_y: None
+                        height: dp(20)
 
                 Card:
                     size_hint_y: None
@@ -755,6 +803,29 @@ class OfferScreen(Screen):
             )
         except Exception:
             self.autodetect_status_text = "Nao consegui abrir as configuracoes."
+
+    def open_overlay_settings(self):
+        if platform != "android":
+            self.autodetect_status_text = "So funciona no celular (Android)."
+            return
+        try:
+            from jnius import autoclass
+
+            Intent = autoclass("android.content.Intent")
+            Settings = autoclass("android.provider.Settings")
+            Uri = autoclass("android.net.Uri")
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            activity = PythonActivity.mActivity
+            intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + activity.getPackageName()),
+            )
+            activity.startActivity(intent)
+            self.autodetect_status_text = (
+                "Ative 'Permitir exibicao sobre outros apps' pro Se Pique."
+            )
+        except Exception:
+            self.autodetect_status_text = "Nao consegui abrir essa permissao."
 
     def _poll_offer(self, _dt):
         data = read_last_offer()

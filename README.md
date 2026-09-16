@@ -51,12 +51,17 @@ Duas formas de preencher os campos:
    "Analisar".
 2. **Automática** (best-effort) — um serviço de Acessibilidade do Android
    (`android-extra/src/.../RideOfferAccessibilityService.java`) lê a tela
-   quando o Urbano Norte, inDriver ou PopMove mostram um pedido, e o app
-   tenta extrair os números sozinho (`taximetro/offer_bridge.py` +
-   `parse_offer_texts` em `taximetro/offer.py`). Isso **exige ativação
-   manual** em Configurações → Acessibilidade → Se Pique (o Android não
-   deixa nenhum app ativar isso sozinho, é proposital) — o botão "Ativar
-   nas configurações do Android" na tela abre esse caminho direto.
+   quando o Urbano Norte, inDriver ou PopMove mostram um pedido, escreve
+   os textos encontrados num arquivo que o Python lê e interpreta
+   (`taximetro/offer_bridge.py` + `parse_offer_texts` em
+   `taximetro/offer.py`), e mostra uma **bolha flutuante por cima do outro
+   app** avisando "pedido detectado" — tocar nela abre o Se Pique direto.
+   Exige **duas ativações manuais** (o Android exige que sejam manuais,
+   por segurança — nenhum app pode ligar isso sozinho), as duas com atalho
+   direto na tela "Vale a corrida?":
+   1. Configurações → Acessibilidade → Se Pique
+   2. Configurações → Apps → Se Pique → Exibir sobre outros apps
+      (permissão `SYSTEM_ALERT_WINDOW`)
 
    **Importante:** a extração automática é uma heurística (procura "R$" e
    "km" no texto da tela) que não foi validada contra as telas reais

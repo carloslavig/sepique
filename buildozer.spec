@@ -12,7 +12,7 @@ requirements = python3,kivy,plyer
 orientation = portrait
 fullscreen = 0
 
-android.permissions = ACCESS_FINE_LOCATION,ACCESS_COARSE_LOCATION,INTERNET
+android.permissions = ACCESS_FINE_LOCATION,ACCESS_COARSE_LOCATION,INTERNET,SYSTEM_ALERT_WINDOW
 android.api = 34
 android.minapi = 24
 android.ndk = 25b
